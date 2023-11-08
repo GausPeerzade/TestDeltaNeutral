@@ -13,18 +13,19 @@ import "./Weth.sol";
 import "@pancakeswap-v2-exchange-protocol/interfaces/IPancakeRouter02.sol";
 
 contract deployRivera is Script {
-    address public token = 0x6B175474E89094C44Da98b954EedeAC495271d0F; // dai eth Mainnet
-    address public wEth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; //wEth aave
-    address public debtToken = 0x778A13D3eeb110A4f7bb6529F99c000119a08E92; //Stable debt dai
-    address public aToken = 0x028171bCA77440897B824Ca71D1c56caC55b68A3; //aDai
-    address public lendle = 0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9; //aave v2 eth mainnet
+    address public token = 0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9; // Usdc mantle Mainnet
+    address public wEth = 0xdEAddEaDdeadDEadDEADDEAddEADDEAddead1111; //wEth mantle
+    address public wMnt = 0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8; // wMnt mantle
+    address public debtToken = 0x5DF9a4BE4F9D717b2bFEce9eC350DcF4cbCb91d8; //Variable debt wEth lendle mantle
+    address public aToken = 0xF36AFb467D1f05541d998BBBcd5F7167D67bd8fC; //aUsdc
+    address public lendle = 0x25356aeca4210eF7553140edb9b8026089E49396; //lendle  mantle mainnet
     bytes32 public pId =
         0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace;
 
-    address public lendingPool = 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9; // aave main net
-    address public riveraVault = 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9;
-    address public router = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D; // univ2
-    address public pyth = 0x4305FB66699C3B2702D4d05CF36551390A4c69C6;
+    address public lendingPool = 0xCFa5aE7c2CE8Fadc6426C1ff872cA45378Fb7cF3; // mantle  main net
+    address public riveraVault = 0x713C1300f82009162cC908dC9D82304A51F05A3E; //rivera agni mantle
+    address public router = 0xDd0840118bF9CCCc6d67b2944ddDfbdb995955FD; // fusionX v2
+    address public pyth = 0xA2aa501b19aff244D90cc15a4Cf739D2725B5729; // on mantle
 
     address public partner = 0xFaBcc4b22fFEa25D01AC23c5d225D7B27CB1B6B8; // my address
     uint256 public protocolFee = 0;
@@ -32,6 +33,7 @@ contract deployRivera is Script {
     uint256 public fundManagerFee = 0;
     uint256 public feeDecimals = 100;
 
+    uint256 public ltv = 80;
     uint256 stratUpdateDelay = 172800;
     uint256 vaultTvlCap = 10000e18;
 
@@ -69,11 +71,16 @@ contract deployRivera is Script {
             lendingPool,
             riveraVault,
             pyth,
-            pId
+            ltv,
+            pId,
+            protocolFee,
+            partnerFee,
+            fundManagerFee,
+            feeDecimals
         );
 
-        Weth(wEth).deposit{value: 1e18}();
-        uint256 bal = Weth(wEth).balanceOf(acc);
+        Weth(wMnt).deposit{value: 100 * 1e18}();
+        uint256 bal = Weth(wMnt).balanceOf(acc);
         console.log(bal);
         vault.init(IStrategy(address(parentStrategy)));
         console.log("ParentVault");
@@ -87,3 +94,5 @@ contract deployRivera is Script {
 //forge script scripts/DeployStrategy.s.sol:deployRivera --rpc-url http://127.0.0.1:8545/ --broadcast -vvv --legacy --slow
 
 // anvil --fork-url https://eth-mainnet.g.alchemy.com/v2/td_qaUjqZjgk924-NBThBa6N0au5ZfMZ --mnemonic "disorder pretty oblige witness close face food stumble name material couch planet"
+
+// anvil --fork-url https://rpc.mantle.xyz --mnemonic "disorder pretty oblige witness close face food stumble name material couch planet"

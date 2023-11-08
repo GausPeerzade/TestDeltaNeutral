@@ -13,9 +13,9 @@ import "./Weth.sol";
 import "@pancakeswap-v2-exchange-protocol/interfaces/IPancakeRouter02.sol";
 
 contract CheckDeposit is Script {
-    address public vault = 0x2760394D2103f799A678C555009c1E94e5Eb217A;
-    address public strategy = 0x5963e4acBf39139A6C60f9899458dECd9ee26ed9;
-    address public token = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address public vault = 0x33e47Fe37FeF6AB1d83e54AAD6c8D01C048171E1;
+    address public strategy = 0x8a1b62c438B7b1d73A7a323C6b685fEc021610aC;
+    address public token = 0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9;
 
     function setUp() public {}
 
@@ -24,7 +24,7 @@ contract CheckDeposit is Script {
         address acc = vm.addr(privateKey);
         console.log("Account", acc);
 
-        uint256 dpDai = 10 * (10 ** 18);
+        uint256 dpDai = 10 * (10 ** 6);
 
         vm.startBroadcast(privateKey);
 
@@ -35,6 +35,7 @@ contract CheckDeposit is Script {
         console.log(RiveraAutoCompoundingVaultV2Public(vault).totalAssets());
         console.log(RiveraAutoCompoundingVaultV2Public(vault).balanceOf(acc));
         console.log(IERC20(token).balanceOf(acc));
+        vm.stopBroadcast();
     }
 }
 

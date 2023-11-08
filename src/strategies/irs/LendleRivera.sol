@@ -12,6 +12,7 @@ import "./OracleInterface/IPyth.sol";
 import "./interfaces/ILendingPool.sol";
 import "./interfaces/IRivera.sol";
 import "./interfaces/ILendingPoolAddressesProvider.sol";
+import "../../libs/LiquiMaths.sol";
 
 import "../common/AbstractStrategy.sol";
 import "../utils/StringUtils.sol";
@@ -30,6 +31,7 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
     address public riveraVault;
     address public pyth;
 
+    uint256 public ltv;
     address public partner;
     uint256 public protocolFee;
     uint256 public partnerFee;
@@ -47,7 +49,12 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
         address _lendigPool,
         address _riveraVault,
         address _pyth,
-        bytes32 _id
+        uint256 _ltv,
+        bytes32 _id,
+        uint256 _protocolFee,
+        uint256 _partnerFee,
+        uint256 _fundManagerFee,
+        uint256 _feeDecimals
     ) AbstractStrategy(_commonAddresses) {
         token = _token;
         wEth = _wEth;
@@ -55,10 +62,15 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
         aToken = _aToken;
         lendle = _lendle;
         partner = _partner;
+        protocolFee = _protocolFee;
+        partnerFee = _partnerFee;
+        fundManagerFee = _fundManagerFee;
+        feeDecimals = _feeDecimals;
         lendingPool = _lendigPool;
         riveraVault = _riveraVault;
         pyth = _pyth;
         pId = _id;
+        ltv = _ltv;
         _giveAllowances();
     }
 
@@ -69,21 +81,15 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
 
     function _deposit() internal {
         uint256 tBal = IERC20(token).balanceOf(address(this));
-        uint256 lendLendle = (tBal * 60) / 100;
+
+        uint256 lendLendle = LiquiMaths.calculateLend(ltv, tBal);
 
         depositAave(lendLendle);
 
-        uint256 ethPrice = uint256(
-            int256(IPyth(pyth).getPriceUnsafe(pId).price)
-        );
+        uint256 borrowEth = LiquiMaths.calculateBorrow(ltv, tBal);
+        uint256 amountEth = tokenToEthConversion(borrowEth);
 
-        uint256 exp = 8;
-
-        // uint256 borrowEth = ((tBal * 40) / 100) / (ethPrice * (10 ** exp));
-        uint256 bBal = IERC20(token).balanceOf(address(this));
-
-        uint256 borrowEth = (bBal) / (ethPrice);
-        borrowAave(borrowEth);
+        borrowAave(amountEth);
         swapTokens(wEth, token, IERC20(wEth).balanceOf(address(this)));
         addLiquidity();
     }
@@ -96,7 +102,7 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
         ILendingPool(lendingPool).borrow(
             wEth,
             _borrowAmount,
-            1,
+            2,
             0,
             address(this)
         );
@@ -104,7 +110,7 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
 
     function addLiquidity() internal {
         uint256 tBal = IERC20(token).balanceOf(address(this));
-        // IRivera(riveraVault).deposit(tBal, address(this));
+        IRivera(riveraVault).deposit(tBal, address(this));
     }
 
     function swapTokens(
@@ -128,35 +134,50 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
     function withdraw(uint256 _amount) public {
         onlyVault();
 
-        // IRivera(riveraVault).withdraw(amAssets, address(this), address(this));
-
-        uint256 rpayEth = _amount / 2;
-
-        swapTokens(token, wEth, rpayEth);
-        repayLoan(IERC20(wEth).balanceOf(address(this)));
-
-        uint256 withdAmount = _amount - IERC20(token).balanceOf(address(this));
-
-        withdrawAave(withdAmount);
-        uint256 tBal = IERC20(token).balanceOf(address(this));
+        IRivera(riveraVault).withdraw(_amount, address(this), address(this));
         _chargeFees(token);
+        uint256 tBal = IERC20(token).balanceOf(address(this));
         IERC20(token).safeTransfer(vault, tBal);
     }
 
     function repayLoan(uint256 _amount) internal {
-        ILendingPool(lendingPool).repay(wEth, _amount, 1, address(this));
+        ILendingPool(lendingPool).repay(wEth, _amount, 2, address(this));
     }
 
     function withdrawAave(uint256 _amount) internal {
         ILendingPool(lendingPool).withdraw(token, _amount, address(this));
     }
 
+    function tokenToEthConversion(uint256 _amount) internal returns (uint256) {
+        uint256 ethPrice = uint256(
+            int256(IPyth(pyth).getPriceUnsafe(pId).price)
+        );
+
+        uint256 weiU = ((1 * 10e18) * 10e8) / (ethPrice);
+        uint256 borrowEth = ((_amount) * weiU) / 10e7;
+
+        return borrowEth;
+    }
+
+    function ethToTokenConversion(
+        uint256 _amount
+    ) internal view returns (uint256) {
+        uint256 ethPrice = uint256(
+            int256(IPyth(pyth).getPriceUnsafe(pId).price)
+        );
+
+        uint256 weiU = ((1 * 10e18) * 10e8) / (ethPrice);
+
+        uint256 pUsdc = (_amount * 10e6) / weiU;
+        return pUsdc;
+    }
+
     function reBalance() public {
         onlyManager();
-        harvest();
+        //harvest();
 
-        // uint256 rBal = IRivera(riveraVault).balanceOf(address(this));
-        // IRivera(riveraVault).withdraw(rBal, address(this), address(this));
+        uint256 rBal = IRivera(riveraVault).balanceOf(address(this));
+        IRivera(riveraVault).withdraw(rBal, address(this), address(this));
 
         uint256 balT = IERC20(token).balanceOf(address(this));
         swapTokens(token, wEth, balT);
@@ -175,7 +196,7 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
     function harvest() public {
         // to convert lendle reward
 
-        //ILendingPool(lendingPool).getReward();
+        // ILendingPool(lendingPool).getReward();
         uint256 lBal = IERC20(lendle).balanceOf(address(this));
         _chargeFees(token);
         swapTokens(lendle, token, lBal);
@@ -183,8 +204,20 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
     }
 
     function balanceOf() public view returns (uint256) {
-        // return IRivera(riveraVault).balanceOf(address(this));
-        return IERC20(token).balanceOf(address(this));
+        return balanceRivera() + balanceDeposit() - totalDebt();
+    }
+
+    function balanceRivera() public view returns (uint256) {
+        return IRivera(riveraVault).balanceOf(address(this));
+    }
+
+    function balanceDeposit() public view returns (uint256) {
+        return IERC20(aToken).balanceOf(address(this));
+    }
+
+    function totalDebt() public view returns (uint256) {
+        uint256 debt = IERC20(debtToken).balanceOf(address(this));
+        return ethToTokenConversion(debt);
     }
 
     function inCaseTokensGetStuck(address _token) external {
@@ -209,8 +242,8 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
 
     function panic() public {
         onlyManager();
-        // uint256 rBal = IRivera(riveraVault).balanceOf(address(this));
-        // IRivera(riveraVault).withdraw(rBal, address(this), address(this));
+        uint256 rBal = IRivera(riveraVault).balanceOf(address(this));
+        IRivera(riveraVault).withdraw(rBal, address(this), address(this));
 
         uint256 balT = IERC20(token).balanceOf(address(this));
         swapTokens(token, wEth, balT);

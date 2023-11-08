@@ -19,17 +19,9 @@ interface ILendleRivera {
 
     function vault() external view returns (address);
 
-    function chef() external view returns (address);
-
     function stake() external view returns (address);
 
     function reward() external view returns (IERC20);
-
-    function lpToken0() external view returns (IERC20);
-
-    function lpToken1() external view returns (IERC20);
-
-    function beforeDeposit() external;
 
     function deposit() external;
 
@@ -37,17 +29,13 @@ interface ILendleRivera {
 
     function balanceOf() external view returns (uint256);
 
-    function balanceOfWant() external view returns (uint256);
+    function balanceDeposit() external view returns (uint256);
 
-    function balanceOfPool() external view returns (uint256);
+    function totalDebt() external view returns (uint256);
 
     function harvest() external;
 
-    function managerHarvest() external;
-
-    function startEpoch(address[] memory _strategies) external;
-
-    function endEpoch() external;
+    function reBalance() external;
 
     function retireStrat() external;
 
@@ -67,8 +55,6 @@ interface ILendleRivera {
 
     function rewardToLp1Route(uint256) external view returns (address);
 
-    function rewardsAvailable() external view returns (uint256);
-
     function owner() external view returns (address);
 
     function manager() external view returns (address);
@@ -76,6 +62,4 @@ interface ILendleRivera {
     function assetStrategyMap(
         address
     ) external view returns (ComonStratData memory);
-
-    function epochRunning() external view returns (bool);
 }

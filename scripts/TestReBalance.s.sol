@@ -12,7 +12,7 @@ import "../src/strategies/common/interfaces/IStrategy.sol";
 import "./Weth.sol";
 import "@pancakeswap-v2-exchange-protocol/interfaces/IPancakeRouter02.sol";
 
-contract CheckWithdraw is Script {
+contract TestReBalance is Script {
     address public vault = 0x33e47Fe37FeF6AB1d83e54AAD6c8D01C048171E1;
     address public strategy = 0x8a1b62c438B7b1d73A7a323C6b685fEc021610aC;
     address public token = 0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9;
@@ -25,16 +25,9 @@ contract CheckWithdraw is Script {
         console.log("Account", acc);
 
         vm.startBroadcast(privateKey);
-        uint256 withd = 4 * 10 ** 6;
-        console.log("before");
-        console.log(RiveraAutoCompoundingVaultV2Public(vault).balanceOf(acc));
-
-        RiveraAutoCompoundingVaultV2Public(vault).withdraw(withd, acc, acc);
-
-        console.log("after");
-        console.log(RiveraAutoCompoundingVaultV2Public(vault).balanceOf(acc));
-        console.log(RiveraAutoCompoundingVaultV2Public(vault).totalAssets());
+        ILendleRivera(strategy).reBalance();
+        vm.stopBroadcast();
     }
 }
 
-// forge script scripts/CheckWithdraw.s.sol:CheckWithdraw --rpc-url http://127.0.0.1:8545/ --broadcast -vvv --legacy --slow
+// forge script scripts/TestReBalance.s.sol:TestReBalance --rpc-url http://127.0.0.1:8545/ --broadcast -vvv --legacy --slow
