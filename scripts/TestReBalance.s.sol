@@ -25,7 +25,7 @@ contract TestReBalance is Script {
         console.log("Account", acc);
 
         vm.startBroadcast(privateKey);
-        ILendleRivera(strategy).reBalance();
+        IStrategy(strategy).reBalance();
         vm.stopBroadcast();
     }
 }

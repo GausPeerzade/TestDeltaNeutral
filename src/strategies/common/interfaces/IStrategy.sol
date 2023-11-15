@@ -37,6 +37,12 @@ interface IStrategy {
 
     function balanceOf() external view returns (uint256);
 
+    function balanceDeposit() external view returns (uint256);
+
+    function balanceRivera() external view returns (uint256);
+
+    function totalDebt() external view returns (uint256);
+
     function balanceOfWant() external view returns (uint256);
 
     function balanceOfPool() external view returns (uint256);
@@ -44,6 +50,8 @@ interface IStrategy {
     function harvest() external;
 
     function managerHarvest() external;
+
+    function reBalance() external;
 
     function retireStrat() external;
 
@@ -65,6 +73,14 @@ interface IStrategy {
 
     function rewardsAvailable() external view returns (uint256);
 
+    function tokenToEthConversion(
+        uint256 _amount
+    ) external view returns (uint256);
+
+    function ethToTokenConversion(
+        uint256 _amount
+    ) external view returns (uint256);
+
     function owner() external view returns (address);
 
     function manager() external view returns (address);
@@ -74,4 +90,6 @@ interface IStrategy {
     ) external view returns (ComonStratData memory);
 
     function epochRunning() external view returns (bool);
+
+    function closeAll() external;
 }

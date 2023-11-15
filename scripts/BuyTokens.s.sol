@@ -40,7 +40,7 @@ contract BuyTokens is Script {
         uint256 botb = IERC20(token).balanceOf(acc);
         console.log(botb);
 
-        uint256 daiBuy = IERC20(wMnt).balanceOf(acc) / 2;
+        uint256 daiBuy = IERC20(wMnt).balanceOf(acc);
 
         uint256 ethBal = IERC20(wMnt).balanceOf(acc);
         console.log("Eth bal");
@@ -53,7 +53,7 @@ contract BuyTokens is Script {
             0,
             path,
             acc,
-            block.timestamp * 2
+            block.timestamp
         );
 
         uint256 ethAf = IERC20(wMnt).balanceOf(acc);

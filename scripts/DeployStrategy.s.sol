@@ -23,15 +23,18 @@ contract deployRivera is Script {
         0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace;
 
     address public lendingPool = 0xCFa5aE7c2CE8Fadc6426C1ff872cA45378Fb7cF3; // mantle  main net
-    address public riveraVault = 0x713C1300f82009162cC908dC9D82304A51F05A3E; //rivera agni mantle
+    address public riveraVault = 0x5f247B216E46fD86A09dfAB377d9DBe62E9dECDA; //rivera agni mantle
     address public router = 0xDd0840118bF9CCCc6d67b2944ddDfbdb995955FD; // fusionX v2
     address public pyth = 0xA2aa501b19aff244D90cc15a4Cf739D2725B5729; // on mantle
+    address public multiFeeD = 0x5C75A733656c3E42E44AFFf1aCa1913611F49230; //Lendle Contract to collect fees
 
     address public partner = 0xFaBcc4b22fFEa25D01AC23c5d225D7B27CB1B6B8; // my address
     uint256 public protocolFee = 0;
     uint256 public partnerFee = 0;
     uint256 public fundManagerFee = 0;
     uint256 public feeDecimals = 100;
+    uint256 public withdrawFee = 1;
+    uint256 public withdrawFeeDecimals = 100;
 
     uint256 public ltv = 80;
     uint256 stratUpdateDelay = 172800;
@@ -64,8 +67,6 @@ contract deployRivera is Script {
             _commonAddresses,
             token,
             wEth,
-            debtToken,
-            aToken,
             lendle,
             partner,
             lendingPool,
@@ -76,7 +77,10 @@ contract deployRivera is Script {
             protocolFee,
             partnerFee,
             fundManagerFee,
-            feeDecimals
+            feeDecimals,
+            multiFeeD,
+            withdrawFee,
+            withdrawFeeDecimals
         );
 
         Weth(wMnt).deposit{value: 100 * 1e18}();
@@ -93,6 +97,9 @@ contract deployRivera is Script {
 
 //forge script scripts/DeployStrategy.s.sol:deployRivera --rpc-url http://127.0.0.1:8545/ --broadcast -vvv --legacy --slow
 
-// anvil --fork-url https://eth-mainnet.g.alchemy.com/v2/td_qaUjqZjgk924-NBThBa6N0au5ZfMZ --mnemonic "disorder pretty oblige witness close face food stumble name material couch planet"
-
 // anvil --fork-url https://rpc.mantle.xyz --mnemonic "disorder pretty oblige witness close face food stumble name material couch planet"
+
+/*  ParentVault
+  0x8a1b62c438B7b1d73A7a323C6b685fEc021610aC
+  ParentStrategy
+  0xf5eB7A02d1B8Dc14D5419Ee9F3f4DeE342960e08 */
