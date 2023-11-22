@@ -8,25 +8,22 @@ import "../src/vaults/RiveraAutoCompoundingVaultV2Public.sol";
 import "../src/strategies/irs/LendleRivera.sol";
 import "../src/strategies/irs/interfaces/ILendleRivera.sol";
 import "../src/strategies/common/interfaces/IStrategy.sol";
+import "../src/strategies/irs/interfaces/IV3SwapRouter.sol";
 
 import "./Weth.sol";
-import "@pancakeswap-v2-exchange-protocol/interfaces/IPancakeRouter02.sol";
 
 contract BuyTokens is Script {
     address public token = 0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9;
     address public wEth = 0xdEAddEaDdeadDEadDEADDEAddEADDEAddead1111;
     address public wMnt = 0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8;
-    address public router = 0xDd0840118bF9CCCc6d67b2944ddDfbdb995955FD;
-
-    address[] public path;
+    address public midToken = 0x201EBa5CC46D216Ce6DC03F6a759e8E766e956aE;
+    address public router = 0x319B69888b0d11cEC22caA5034e25FfFBDc88421;
+    uint24 public fees = 500;
 
     // path[0] = wEth;
     // path[1] = token;
 
-    function setUp() public {
-        path.push(wMnt);
-        path.push(token);
-    }
+    function setUp() public {}
 
     function run() public {
         address gaus = 0xFaBcc4b22fFEa25D01AC23c5d225D7B27CB1B6B8;
@@ -36,35 +33,59 @@ contract BuyTokens is Script {
 
         vm.startBroadcast(privateKey);
 
-        console.log("Dai Balance Before");
-        uint256 botb = IERC20(token).balanceOf(acc);
-        console.log(botb);
+        Weth(wMnt).deposit{value: 100 * 1e18}();
 
-        uint256 daiBuy = IERC20(wMnt).balanceOf(acc);
+        uint256 bW = Weth(wMnt).balanceOf(acc);
+        IERC20(wMnt).approve(router, bW);
+        _swapV3In(wMnt, token, bW, fees);
 
-        uint256 ethBal = IERC20(wMnt).balanceOf(acc);
-        console.log("Eth bal");
-        console.log(ethBal);
+        uint256 usdcB = IERC20(token).balanceOf(acc);
 
-        IERC20(wMnt).approve(router, daiBuy);
+        console.log("usdc ", usdcB);
+        IERC20(token).approve(router, usdcB);
+        _swapV3In(token, wEth, usdcB, fees);
 
-        IPancakeRouter02(router).swapExactTokensForTokens(
-            daiBuy,
-            0,
-            path,
-            acc,
-            block.timestamp
-        );
-
-        uint256 ethAf = IERC20(wMnt).balanceOf(acc);
-        console.log("Eth af");
-        console.log(ethAf);
-
-        uint256 bot = IERC20(token).balanceOf(acc);
-        console.log("Dai bal after");
-        console.log(bot);
+        console.log("eth", IERC20(wEth).balanceOf(acc));
 
         vm.stopBroadcast();
+    }
+
+    // function swapTokens(
+    //     address tokenA,
+    //     address tokenB,
+    //     uint256 amountIn
+    // ) public {
+    //     address[] memory path = new address[](2);
+    //     path[0] = tokenA;
+    //     path[1] = tokenB;
+
+    //     IPancakeRouter02(router).swapExactTokensForTokens(
+    //         amountIn,
+    //         0,
+    //         path,
+    //         0x69605b7A74D967a3DA33A20c1b94031BC6cAF27c,
+    //         block.timestamp * 2
+    //     );
+    // }
+
+    function _swapV3In(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint24 fee
+    ) public returns (uint256 amountOut) {
+        amountOut = IV3SwapRouter(router).exactInputSingle(
+            IV3SwapRouter.ExactInputSingleParams(
+                tokenIn,
+                tokenOut,
+                fee,
+                0x69605b7A74D967a3DA33A20c1b94031BC6cAF27c,
+                block.timestamp * 2,
+                amountIn,
+                0,
+                0
+            )
+        );
     }
 }
 

@@ -12,7 +12,7 @@ import "../src/strategies/common/interfaces/IStrategy.sol";
 import "./Weth.sol";
 import "@pancakeswap-v2-exchange-protocol/interfaces/IPancakeRouter02.sol";
 
-contract deployRivera is Script {
+contract DeployOnlyStrat is Script {
     address public token = 0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9; // Usdc mantle Mainnet
     address public wEth = 0xdEAddEaDdeadDEadDEADDEAddEADDEAddead1111; //wEth mantle
     address public midToken = 0x201EBa5CC46D216Ce6DC03F6a759e8E766e956aE; //usdt mantle
@@ -25,11 +25,10 @@ contract deployRivera is Script {
 
     address public lendingPool = 0xCFa5aE7c2CE8Fadc6426C1ff872cA45378Fb7cF3; // mantle  main net
     address public riveraVault = 0x5f247B216E46fD86A09dfAB377d9DBe62E9dECDA; //rivera agni mantle
-    address public router = 0x319B69888b0d11cEC22caA5034e25FfFBDc88421; // agni v3
-    address public routerH = 0xDd0840118bF9CCCc6d67b2944ddDfbdb995955FD; // fusionx v2
+    address public router = 0x319B69888b0d11cEC22caA5034e25FfFBDc88421; // fusionX v3
     address public pyth = 0xA2aa501b19aff244D90cc15a4Cf739D2725B5729; // on mantle
     address public multiFeeD = 0x5C75A733656c3E42E44AFFf1aCa1913611F49230; //Lendle Contract to collect fees
-    address public masterCh = 0x79e2fd1c484EB9EE45001A98Ce31F28918F27C41;
+
     address public partner = 0xFaBcc4b22fFEa25D01AC23c5d225D7B27CB1B6B8; // my address
     uint256 public protocolFee = 0;
     uint256 public partnerFee = 0;
@@ -80,27 +79,18 @@ contract deployRivera is Script {
             partnerFee,
             fundManagerFee,
             feeDecimals,
-            masterCh,
             multiFeeD,
             withdrawFee,
-            withdrawFeeDecimals,
-            routerH,
-            wMnt
+            withdrawFeeDecimals
         );
 
-        Weth(wMnt).deposit{value: 100 * 1e18}();
-        uint256 bal = Weth(wMnt).balanceOf(acc);
-        console.log(bal);
-        vault.init(IStrategy(address(parentStrategy)));
-        console.log("ParentVault");
-        console2.logAddress(address(vault));
         console.log("ParentStrategy");
         console2.logAddress(address(parentStrategy));
         vm.stopBroadcast();
     }
 }
 
-//forge script scripts/DeployStrategy.s.sol:deployRivera --rpc-url http://127.0.0.1:8545/ --broadcast -vvv --legacy --slow
+//forge script scripts/DeployOnlyStrat.s.sol:DeployOnlyStrat --rpc-url http://127.0.0.1:8545/ --broadcast -vvv --legacy --slow
 
 // anvil --fork-url https://rpc.mantle.xyz --mnemonic "disorder pretty oblige witness close face food stumble name material couch planet"
 

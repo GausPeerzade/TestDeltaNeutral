@@ -8,6 +8,7 @@ import "@openzeppelin/security/Pausable.sol";
 import "@openzeppelin/security/ReentrancyGuard.sol";
 
 import "@pancakeswap-v2-exchange-protocol/interfaces/IPancakeRouter02.sol";
+import "./interfaces/IV3SwapRouter.sol";
 import "./OracleInterface/IPyth.sol";
 import "./interfaces/DataTypes.sol";
 
@@ -15,12 +16,13 @@ import "./interfaces/ILendingPool.sol";
 import "./interfaces/IRivera.sol";
 import "./interfaces/ILendingPoolAddressesProvider.sol";
 import "./interfaces/IMultiFeeDistribution.sol";
+import "./interfaces/IMasterChef.sol";
 import "../../libs/LiquiMaths.sol";
 
 import "../common/AbstractStrategy.sol";
 import "../utils/StringUtils.sol";
 
-contract LendleRivera is AbstractStrategy, ReentrancyGuard {
+contract PdnRivera is AbstractStrategy, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     address public token;
@@ -28,12 +30,16 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
     address public debtToken;
     address public aToken;
     address public lendle;
+    address public midToken;
     bytes32 public pId;
 
     address public lendingPool;
     address public riveraVault;
+    address public routerH;
     address public pyth;
+    address public multiFee;
     address public claimC;
+    uint24 public fees = 500;
 
     uint256 public ltv;
     address public partner;
@@ -43,6 +49,19 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
     uint256 public feeDecimals;
     uint256 public withdrawFee;
     uint256 public withdrawFeeDecimals;
+
+    address[] public forReward = [
+        0xF36AFb467D1f05541d998BBBcd5F7167D67bd8fC,
+        0x334a542b51212b8Bcd6F96EfD718D55A9b7D1c35,
+        0xE71cbaaa6B093FcE66211E6f218780685077D8B5,
+        0xaC3c14071c80819113DF501E1AB767be910d5e5a,
+        0x44CCCBbD7A5A9e2202076ea80C185DA0058f1715,
+        0x42f9F9202D5F4412148662Cf3bC68D704c8E354f,
+        0x787Cb0D29194f0fAcA73884C383CF4d2501bb874,
+        0x5DF9a4BE4F9D717b2bFEce9eC350DcF4cbCb91d8,
+        0x683696523512636B46A826A7e3D1B0658E8e2e1c,
+        0x18d3E4F9951fedcdDD806538857eBED2F5F423B7
+    ];
 
     constructor(
         CommonAddresses memory _commonAddresses,
@@ -60,8 +79,11 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
         uint256 _fundManagerFee,
         uint256 _feeDecimals,
         address _claimC,
+        address _multiFee,
         uint256 _withdrawFee,
-        uint256 _withdrawFeeDecimals
+        uint256 _withdrawFeeDecimals,
+        address _routerH,
+        address _midToken
     ) AbstractStrategy(_commonAddresses) {
         token = _token;
         wEth = _wEth;
@@ -77,8 +99,11 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
         pId = _id;
         ltv = _ltv;
         claimC = _claimC;
+        multiFee = _multiFee;
         withdrawFee = _withdrawFee;
         withdrawFeeDecimals = _withdrawFeeDecimals;
+        routerH = _routerH;
+        midToken = _midToken;
 
         DataTypes.ReserveData memory w = ILendingPool(lendingPool)
             .getReserveData(wEth);
@@ -115,7 +140,7 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
 
         borrowAave(amountEth);
         uint256 etV = IERC20(wEth).balanceOf(address(this));
-        swapTokens(wEth, token, etV);
+        _swapV3In(wEth, token, etV, fees);
         addLiquidity();
     }
 
@@ -138,21 +163,37 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
         IRivera(riveraVault).deposit(tBal, address(this));
     }
 
-    function swapTokens(
-        address tokenA,
-        address tokenB,
-        uint256 amountIn
-    ) public {
+    function _swapV3In(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint24 fee
+    ) public returns (uint256 amountOut) {
+        amountOut = IV3SwapRouter(router).exactInputSingle(
+            IV3SwapRouter.ExactInputSingleParams(
+                tokenIn,
+                tokenOut,
+                fee,
+                address(this),
+                block.timestamp * 2,
+                amountIn,
+                0,
+                0
+            )
+        );
+    }
+
+    function _swapV2(address tokenA, address tokenB, uint256 _amount) internal {
         address[] memory path = new address[](2);
         path[0] = tokenA;
         path[1] = tokenB;
 
-        IPancakeRouter02(router).swapExactTokensForTokens(
-            amountIn,
+        IPancakeRouter02(routerH).swapExactTokensForTokens(
+            _amount,
             0,
             path,
             address(this),
-            block.timestamp
+            block.timestamp * 2
         );
     }
 
@@ -226,13 +267,13 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
         IERC20(token).transfer(vault, totalBal);
     }
 
-    function closeAll() public {
+    function closeAll() internal {
         uint256 rBal = IRivera(riveraVault).balanceOf(address(this));
         uint256 balA = IRivera(riveraVault).convertToAssets(rBal);
         IRivera(riveraVault).withdraw(balA, address(this), address(this));
 
         uint256 balT = IERC20(token).balanceOf(address(this));
-        swapTokens(token, wEth, balT);
+        _swapV3In(token, wEth, balT, fees);
 
         uint256 debtNow = IERC20(debtToken).balanceOf(address(this));
         repayLoan(debtNow);
@@ -240,13 +281,18 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
         uint256 inAmount = IERC20(aToken).balanceOf(address(this));
         withdrawAave(inAmount);
         balT = IERC20(wEth).balanceOf(address(this));
-        swapTokens(wEth, token, balT);
+        _swapV3In(wEth, token, balT, fees);
     }
 
     function harvest() public whenNotPaused {
-        IMultiFeeDistribution(claimC).getReward();
+        IMultiFeeDistribution(claimC).claim(address(this), forReward);
+        (uint256 amount, uint256 penalty) = IMultiFeeDistribution(multiFee)
+            .withdrawableBalance(address(this));
+        IMultiFeeDistribution(multiFee).withdraw((amount * 99) / 100);
         uint256 lBal = IERC20(lendle).balanceOf(address(this));
-        swapTokens(lendle, token, lBal);
+        _swapV2(lendle, midToken, lBal);
+        uint256 mBal = IERC20(midToken).balanceOf(address(this));
+        _swapV3In(midToken, token, mBal, fees);
         _chargeFees(token);
         _deposit();
     }
@@ -313,12 +359,24 @@ contract LendleRivera is AbstractStrategy, ReentrancyGuard {
 
     function _giveAllowances() internal virtual {
         IERC20(token).approve(router, type(uint256).max);
+        IERC20(token).approve(routerH, type(uint256).max);
         IERC20(token).approve(lendingPool, type(uint256).max);
         IERC20(token).approve(riveraVault, type(uint256).max);
 
         IERC20(wEth).approve(router, type(uint256).max);
+        IERC20(wEth).approve(routerH, type(uint256).max);
         IERC20(wEth).approve(lendingPool, type(uint256).max);
         IERC20(wEth).approve(riveraVault, type(uint256).max);
+
+        IERC20(midToken).approve(router, type(uint256).max);
+        IERC20(midToken).approve(routerH, type(uint256).max);
+        IERC20(midToken).approve(lendingPool, type(uint256).max);
+        IERC20(midToken).approve(riveraVault, type(uint256).max);
+
+        IERC20(lendle).approve(router, type(uint256).max);
+        IERC20(lendle).approve(routerH, type(uint256).max);
+        IERC20(lendle).approve(lendingPool, type(uint256).max);
+        IERC20(lendle).approve(riveraVault, type(uint256).max);
     }
 
     function _removeAllowances() internal virtual {

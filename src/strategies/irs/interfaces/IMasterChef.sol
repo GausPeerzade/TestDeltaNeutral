@@ -9,11 +9,19 @@ interface IMasterChef {
 
     function leaveStaking(uint256 _amount) external;
 
-    function pendingCake(uint256 _pid, address _user) external view returns (uint256);
+    function pendingCake(
+        uint256 _pid,
+        address _user
+    ) external view returns (uint256);
 
-    function userInfo(uint256 _pid, address _user) external view returns (uint256, uint256);
+    function userInfo(
+        uint256 _pid,
+        address _user
+    ) external view returns (uint256, uint256);
 
     function emergencyWithdraw(uint256 _pid) external;
 
     function poolLength() external view returns (uint256);
+
+    function claim(address _user, address[] calldata _tokens) external;
 }
